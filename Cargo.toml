@@ -1,0 +1,5 @@
+[package]
+name = "vfs"
+version = "0.0.0"
+authors = ["Flagship Team"]
+edition = "2018"
