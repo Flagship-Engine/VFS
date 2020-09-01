@@ -40,16 +40,20 @@ impl VfsPath {
     }
 
     // Takes the first folder of the path and resturns the rest of the path if there is any left
-    pub fn take_head(&self) -> (&str, Option<&VfsPath>) {
+    pub fn take_head(&self) -> (&str, Option<&Self>) {
         let trimmed = Self::new(self.0.trim_start_matches('/'));
-        let take = trimmed.iter().next().unwrap();
-        let (_, tail) = trimmed.0.split_at(take.len());
-        let tail = if tail.is_empty() {
-            None
-        } else {
-            Some(VfsPath::new(tail))
-        };
-        (take, tail)
+        match trimmed.iter().next() {
+            Some(take) => {
+                let (_, tail) = trimmed.0.split_at(take.len());
+                let tail = if tail.is_empty() {
+                    None
+                } else {
+                    Some(Self::new(tail))
+                };
+                (take, tail)
+            }
+            None => ("", None),
+        }
     }
 
     pub fn to_str(&self) -> &str {
@@ -106,12 +110,24 @@ impl<'a> FromIterator<&'a str> for VfsPathBuf {
     where
         T: IntoIterator<Item = &'a str>,
     {
-        let mut buf = Self::new();
-        for s in iter {
-            buf.0.push('/');
-            buf.0.push_str(s);
+        // Ensure there is always a leading '/', even when the iterator is empty
+        let mut buf = String::from("/");
+        let mut iter = iter.into_iter();
+        
+        // If statement here to check if any string adding has occured in order
+        // to know if a truncation if necessary or not
+        if let Some(s) = iter.next() {
+            buf.push_str(s);
+            buf.push('/');
+            for s in iter {
+                buf.push_str(s);
+                buf.push('/');
+            }
+            // Remove trailing '/'
+            buf.truncate(buf.len() - 1);
         }
-        buf
+        
+        Self(buf)
     }
 }
 impl<'a> FromIterator<&'a &'a str> for VfsPathBuf {
@@ -127,7 +143,7 @@ impl<'a> FromIterator<&'a String> for VfsPathBuf {
     where
         T: IntoIterator<Item = &'a String>,
     {
-        iter.into_iter().map(|s| s.as_str()).collect()
+        iter.into_iter().map(String::as_str).collect()
     }
 }
 
@@ -161,6 +177,12 @@ mod tests {
             path.canonicalize(),
             VfsPathBuf::from("/hello/world/file.txt")
         );
+        
+        let path = VfsPath::new("././././");
+        assert_eq!(
+            path.canonicalize(),
+            VfsPathBuf::from("/")
+        );
     }
 
     #[test]
@@ -172,6 +194,11 @@ mod tests {
 
         let (head, tail) = tail.unwrap().take_head();
         assert_eq!(head, "file.txt");
+        assert_eq!(tail, None);
+
+        let path = VfsPath::new("/");
+        let (head, tail) = path.take_head();
+        assert_eq!(head, "");
         assert_eq!(tail, None);
     }
 
