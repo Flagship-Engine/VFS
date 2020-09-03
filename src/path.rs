@@ -41,7 +41,7 @@ impl VfsPath {
 
     // Takes the first folder of the path and resturns the rest of the path if there is any left
     pub fn take_head(&self) -> (&str, Option<&Self>) {
-        let trimmed = Self::new(self.0.trim_start_matches('/'));
+        let trimmed = Self::new(self.0.trim_matches('/'));
         match trimmed.iter().next() {
             Some(take) => {
                 let (_, tail) = trimmed.0.split_at(take.len());
@@ -113,7 +113,7 @@ impl<'a> FromIterator<&'a str> for VfsPathBuf {
         // Ensure there is always a leading '/', even when the iterator is empty
         let mut buf = String::from("/");
         let mut iter = iter.into_iter();
-        
+
         // If statement here to check if any string adding has occured in order
         // to know if a truncation if necessary or not
         if let Some(s) = iter.next() {
@@ -126,7 +126,7 @@ impl<'a> FromIterator<&'a str> for VfsPathBuf {
             // Remove trailing '/'
             buf.truncate(buf.len() - 1);
         }
-        
+
         Self(buf)
     }
 }
@@ -177,17 +177,15 @@ mod tests {
             path.canonicalize(),
             VfsPathBuf::from("/hello/world/file.txt")
         );
-        
+
         let path = VfsPath::new("././././");
-        assert_eq!(
-            path.canonicalize(),
-            VfsPathBuf::from("/")
-        );
+        assert_eq!(path.canonicalize(), VfsPathBuf::from("/"));
     }
 
     #[test]
     fn path_take_head() {
-        let path = VfsPath::new("/path/file.txt");
+        // Trailling slashes are trimmed as in this case, our filesystem is more simplified
+        let path = VfsPath::new("/path/file.txt/");
         let (head, tail) = path.take_head();
         assert_eq!(head, "path");
         assert_eq!(tail, Some(VfsPath::new("/file.txt")));
