@@ -1,6 +1,8 @@
 use std::borrow::Borrow;
+use std::io::{ErrorKind, Result};
 use std::iter::FromIterator;
 use std::ops::Deref;
+use std::path::Path;
 
 // For the purpose of our VFS, _all_ paths will be considered absolute. We _may_ implement relative paths at some point or another.
 
@@ -12,6 +14,13 @@ impl VfsPath {
         // Copy pasta from std::path::Path
         // Converts `&str` to `&VfsPath`, a very thin wrapper.
         unsafe { &*(s.as_ref() as *const str as *const VfsPath) }
+    }
+
+    #[inline]
+    pub fn to_path(&self) -> Result<&Path> {
+        // Trims '/' to make the path relative
+        // TODO: perhaps a conversion to be more careful
+        Ok(Path::new(self.validate()?.to_str().trim_start_matches('/')))
     }
 
     // TODO: do dot-files have extensions?
@@ -29,11 +38,11 @@ impl VfsPath {
         self.iter().collect()
     }
 
-    pub fn validate(&self) -> Result<&Self, ()> {
+    pub fn validate(&self) -> Result<&Self> {
         // Currently just checks for ".." path selector as it is invalid
         // ".." is not allowed because all paths are absolute
         if self.iter().any(|s| s == "..") {
-            Err(())
+            Err(ErrorKind::InvalidInput.into())
         } else {
             Ok(self)
         }
